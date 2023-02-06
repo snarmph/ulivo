@@ -7,8 +7,23 @@
 #include <string.h>
 #include <assert.h>
 
-#ifndef DONT_USE_COLLA
-    #include <tracelog.h>
+#ifndef DONT_USE_TLOG
+typedef void (*on_fatal_cb_f)(const char *msg, void *userdata);
+
+enum {
+    LogAll, LogTrace, LogDebug, LogInfo, LogWarning, LogError, LogFatal
+};
+
+static void traceLog(int level, const char *fmt, ...);
+static void traceSetFatalCallback(on_fatal_cb_f cb, void *userdata);
+
+#define tall(...)  traceLog(LogAll, __VA_ARGS__)
+#define trace(...) traceLog(LogTrace, __VA_ARGS__)
+#define debug(...) traceLog(LogDebug, __VA_ARGS__)
+#define info(...)  traceLog(LogInfo, __VA_ARGS__)
+#define warn(...)  traceLog(LogWarning, __VA_ARGS__)
+#define err(...)   traceLog(LogError, __VA_ARGS__)
+#define fatal(...) traceLog(LogFatal, __VA_ARGS__)
 #endif
 
 #pragma comment(lib, "d3d11.lib")
@@ -788,3 +803,86 @@ static const u8 ps_data[] ={
 	0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00,   
 	0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00,   
 };
+
+#ifndef DONT_USE_TLOG
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#pragma warning(disable:4996) // _CRT_SECURE_NO_WARNINGS.
+#include <Windows.h>
+
+#define MAX_TRACELOG_MSG_LENGTH 1024
+
+static on_fatal_cb_f fatal_callback = NULL;
+static void *fatal_cb_userdata = NULL;
+
+static void setLevelColour(int level) {
+    WORD attribute = 15;
+    switch (level) {
+        case LogDebug:   attribute = 1; break; 
+        case LogInfo:    attribute = 2; break;
+        case LogWarning: attribute = 6; break;
+        case LogError:   attribute = 4; break;
+        case LogFatal:   attribute = 4; break;
+    }
+
+    HANDLE hc = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(hc, attribute);
+}
+
+static void traceLogVaList(int level, const char *fmt, va_list args) {
+	    char buffer[MAX_TRACELOG_MSG_LENGTH];
+    memset(buffer, 0, sizeof(buffer));
+
+    const char *beg;
+    switch (level) {
+        case LogTrace:   beg = "[TRACE]: ";   break; 
+        case LogDebug:   beg = "[DEBUG]: ";   break; 
+        case LogInfo:    beg = "[INFO]: ";    break; 
+        case LogWarning: beg = "[WARNING]: "; break; 
+        case LogError:   beg = "[ERROR]: ";   break; 
+        case LogFatal:   beg = "[FATAL]: ";   break;        
+        default:         beg = "";                              break;
+    }
+
+    size_t offset = 0;
+
+    vsnprintf(buffer + offset, sizeof(buffer) - offset, fmt, args);
+
+    SetConsoleOutputCP(CP_UTF8);
+    setLevelColour(level);
+    printf("%s", beg);
+    // set back to white
+    setLevelColour(LogTrace);
+    printf("%s\n", buffer);
+
+    if (level == LogFatal) {
+        if (fatal_callback) {
+            fatal_callback(buffer + offset, fatal_cb_userdata);
+        }
+#ifndef TLOG_DONT_EXIT_ON_FATAL
+        exit(1);
+#endif
+    }
+
+#ifndef TLOG_DONT_EXIT_ON_FATAL
+    if (level == LogFatal) exit(1);
+#endif
+
+}
+
+static void traceLog(int level, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    traceLogVaList(level, fmt, args);
+    va_end(args);
+}
+
+static void traceSetFatalCallback(on_fatal_cb_f cb, void *userdata) {
+	fatal_callback = cb;
+    fatal_cb_userdata = userdata;
+}
+
+#endif
