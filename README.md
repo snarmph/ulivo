@@ -2,7 +2,7 @@
 
 Single header/source pair frontend graphics library
 
-To work, this libary needs a backend! (look at [a backends](src/backend/))
+To work, this libary needs a backend! (look at [backends](src/backend/))
 
 ## Example
 ```c
