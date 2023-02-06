@@ -1,0 +1,3 @@
+[submodule "libs/colla"]
+	path = libs/colla
+	url = https://github.com/snarmph/colla

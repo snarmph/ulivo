@@ -1,0 +1,10 @@
+.vscode/
+bin/
+build/
+build-cmake/
+assets/
+
+./CMakeLists.txt
+src/main.c
+compiler.exe
+vc140.pdb
